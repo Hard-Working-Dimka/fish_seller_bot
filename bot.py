@@ -29,6 +29,12 @@ def get_product(id):
 
 
 def start(update, context):
+    update.message.reply_text(text='Привет! Ты в рыбном магазине!')
+
+    return 'HANDLE_MENU'
+
+
+def handle_menu(update, context):
     goods = get_goods()
     keyboard = []
 
@@ -38,13 +44,20 @@ def start(update, context):
 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    update.message.reply_text('Please choose:', reply_markup=reply_markup)
-    return 'HANDLE_MENU'
+    update.effective_message.reply_text('Please choose:', reply_markup=reply_markup)
+
+    if update.callback_query:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        update.callback_query.answer()
+
+    return 'HANDLE_DESCRIPTION'
 
 
-def handle_menu(update, context):
+def handle_description(update, context):
     query = update.callback_query
-
     query.answer()
 
     product = get_product(query.data)
@@ -53,24 +66,20 @@ def handle_menu(update, context):
     image_data = BytesIO(response.content)
     product_description = product['attributes']['description']
 
-    update.callback_query.message.reply_photo(caption=product_description, photo=image_data)
+    keyboard = [[InlineKeyboardButton('Назад', callback_data='1')]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.callback_query.message.reply_photo(caption=product_description, photo=image_data, reply_markup=reply_markup)
 
+    if update.callback_query:
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        update.callback_query.answer()
     return 'HANDLE_MENU'
 
 
 def handle_users_reply(update, context):
-    """
-    Функция, которая запускается при любом сообщении от пользователя и решает как его обработать.
-    Эта функция запускается в ответ на эти действия пользователя:
-        * Нажатие на inline-кнопку в боте
-        * Отправка сообщения боту
-        * Отправка команды боту
-    Она получает стейт пользователя из базы данных и запускает соответствующую функцию-обработчик (хэндлер).
-    Функция-обработчик возвращает следующее состояние, которое записывается в базу данных.
-    Если пользователь только начал пользоваться ботом, Telegram форсит его написать "/start",
-    поэтому по этой фразе выставляется стартовое состояние.
-    Если пользователь захочет начать общение с ботом заново, он также может воспользоваться этой командой.
-    """
     db = get_database_connection()
     if update.message:
         user_reply = update.message.text
@@ -81,13 +90,14 @@ def handle_users_reply(update, context):
     else:
         return
     if user_reply == '/start':
-        user_state = 'START'
+        user_state = 'HANDLE_MENU'
     else:
         user_state = db.get(chat_id).decode("utf-8")
 
     states_functions = {
         'START': start,
-        'HANDLE_MENU': handle_menu
+        'HANDLE_MENU': handle_menu,
+        'HANDLE_DESCRIPTION': handle_description,
     }
     state_handler = states_functions[user_state]
 
