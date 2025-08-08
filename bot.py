@@ -1,39 +1,56 @@
-"""
-Работает с этими модулями:
-python-telegram-bot==13.15
-redis==3.2.1
-"""
-import os
-import logging
 import redis
+import requests
+from environs import env
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
-from telegram.ext import Filters, Updater
+from telegram.ext import Filters, Updater, CallbackContext
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
 _database = None
 
 
+def get_goods():
+    url = 'http://localhost:8000/api/products'
+    auth_token = env("AUTH_TOKEN")
+    headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
+    goods = requests.get(url=url, headers=headers)
+    goods = goods.json()['data']
+    return goods
+
+
+def get_product(id):
+    url = f'http://localhost:8000/api/products/{id}'
+    auth_token = env("AUTH_TOKEN")
+    headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
+    product = requests.get(url=url, headers=headers)
+    product = product.json()['data']
+    return product
+
+
 def start(update, context):
-    """
-    Хэндлер для состояния START.
+    goods = get_goods()
+    keyboard = []
 
-    Бот отвечает пользователю фразой "Привет!" и переводит его в состояние ECHO.
-    Теперь в ответ на его команды будет запускаеться хэндлер echo.
-    """
-    update.message.reply_text(text='Привет!')
-    return "ECHO"
+    for product in goods:
+        button = [InlineKeyboardButton(product['attributes']['title'], callback_data=product['id'])]
+        keyboard.append(button)
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+    return 'HANDLE_MENU'
 
 
-def echo(update, context):
-    """
-    Хэндлер для состояния ECHO.
+def handle_menu(update, context):
+    query = update.callback_query
 
-    Бот отвечает пользователю тем же, что пользователь ему написал.
-    Оставляет пользователя в состоянии ECHO.
-    """
-    users_reply = update.message.text
-    update.message.reply_text(users_reply)
-    return "ECHO"
+    query.answer()
+    product = get_product(query.data)
+    product_description = product['attributes']['description']
+
+    update.callback_query.message.edit_text(product_description)
+
+    return 'HANDLE_MENU'
 
 
 def handle_users_reply(update, context):
@@ -65,12 +82,10 @@ def handle_users_reply(update, context):
 
     states_functions = {
         'START': start,
-        'ECHO': echo
+        'HANDLE_MENU': handle_menu
     }
     state_handler = states_functions[user_state]
-    # Если вы вдруг не заметите, что python-telegram-bot перехватывает ошибки.
-    # Оставляю этот try...except, чтобы код не падал молча.
-    # Этот фрагмент можно переписать.
+
     try:
         next_state = state_handler(update, context)
         db.set(chat_id, next_state)
@@ -79,20 +94,19 @@ def handle_users_reply(update, context):
 
 
 def get_database_connection():
-    """
-    Возвращает конекшн с базой данных Redis, либо создаёт новый, если он ещё не создан.
-    """
     global _database
     if _database is None:
-        database_password = os.getenv("DATABASE_PASSWORD")
-        database_host = os.getenv("DATABASE_HOST")
-        database_port = os.getenv("DATABASE_PORT")
+        database_password = env('DATABASE_PASSWORD')
+        database_host = env('DATABASE_HOST')
+        database_port = env('DATABASE_PORT')
         _database = redis.Redis(host=database_host, port=database_port, password=database_password)
     return _database
 
 
 if __name__ == '__main__':
-    token = os.getenv("TELEGRAM_TOKEN")
+    env.read_env()
+
+    token = env('TELEGRAM_TOKEN')
     updater = Updater(token)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
