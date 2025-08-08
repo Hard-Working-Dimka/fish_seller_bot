@@ -2,6 +2,7 @@ import redis
 import requests
 from environs import env
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from io import BytesIO
 
 from telegram.ext import Filters, Updater, CallbackContext
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
@@ -19,7 +20,7 @@ def get_goods():
 
 
 def get_product(id):
-    url = f'http://localhost:8000/api/products/{id}'
+    url = f'http://localhost:8000/api/products/{id}?populate=picture'
     auth_token = env("AUTH_TOKEN")
     headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
     product = requests.get(url=url, headers=headers)
@@ -45,10 +46,14 @@ def handle_menu(update, context):
     query = update.callback_query
 
     query.answer()
+
     product = get_product(query.data)
+    image_url = product['attributes']['picture']['data'][0]['attributes']['url']
+    response = requests.get(f'http://localhost:8000{image_url}')
+    image_data = BytesIO(response.content)
     product_description = product['attributes']['description']
 
-    update.callback_query.message.edit_text(product_description)
+    update.callback_query.message.reply_photo(caption=product_description, photo=image_data)
 
     return 'HANDLE_MENU'
 
