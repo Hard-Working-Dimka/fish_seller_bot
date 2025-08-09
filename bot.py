@@ -15,6 +15,7 @@ def get_goods():
     auth_token = env("AUTH_TOKEN")
     headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
     goods = requests.get(url=url, headers=headers)
+    goods.raise_for_status()
     goods = goods.json()['data']
     return goods
 
@@ -24,6 +25,7 @@ def get_product(id):
     auth_token = env("AUTH_TOKEN")
     headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
     product = requests.get(url=url, headers=headers)
+    product.raise_for_status()
     product = product.json()['data']
     return product
 
@@ -63,14 +65,27 @@ def handle_description(update, context):
     product = get_product(query.data)
     image_url = product['attributes']['picture']['data'][0]['attributes']['url']
     response = requests.get(f'http://localhost:8000{image_url}')
+    response.raise_for_status()
     image_data = BytesIO(response.content)
     product_description = product['attributes']['description']
 
-    keyboard = [[InlineKeyboardButton('Назад', callback_data='1')]]
+    keyboard = [[InlineKeyboardButton('Назад', callback_data='back')],
+                [InlineKeyboardButton('Добавить в корзину', callback_data=query.data)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.message.reply_photo(caption=product_description, photo=image_data, reply_markup=reply_markup)
 
     if update.callback_query:
+        if query.data != 'back':
+            auth_token = env("AUTH_TOKEN")
+            headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
+            data = {
+                "data": {
+                    "tg_id": query.from_user.id
+                }
+            }
+            request = requests.post('http://localhost:8000/api/carts', json=data, headers=headers)
+            request.raise_for_status()
+
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
             message_id=update.effective_message.message_id
