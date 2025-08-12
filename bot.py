@@ -13,7 +13,10 @@ _database = None
 def get_goods():
     url = 'http://localhost:8000/api/products'
     auth_token = env("AUTH_TOKEN")
-    headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
+    headers = {
+        'Authorization': f'Bearer {auth_token}',
+        'Content-Type': 'application/json'
+    }
     goods = requests.get(url=url, headers=headers)
     goods.raise_for_status()
     goods = goods.json()['data']
@@ -23,11 +26,72 @@ def get_goods():
 def get_product(id):
     url = f'http://localhost:8000/api/products/{id}?populate=picture'
     auth_token = env("AUTH_TOKEN")
-    headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
+    headers = {
+        'Authorization': f'Bearer {auth_token}',
+        'Content-Type': 'application/json'
+    }
     product = requests.get(url=url, headers=headers)
     product.raise_for_status()
     product = product.json()['data']
     return product
+
+
+def is_cart_exist(tg_id):
+    auth_token = env("AUTH_TOKEN")
+    headers = {
+        'Authorization': f'Bearer {auth_token}',
+        'Content-Type': 'application/json'
+    }
+    url = f'http://localhost:8000/api/carts?filters[tg_id][$eq]={tg_id}'
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+
+    if response.json()['data']:
+        return True
+    else:
+        return False
+
+
+def create_cart(tg_id):
+    if not is_cart_exist(tg_id):
+        auth_token = env("AUTH_TOKEN")
+        headers = {
+            'Authorization': f'Bearer {auth_token}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            "data": {
+                "tg_id": tg_id,
+                "id": tg_id
+            }
+        }
+        url = 'http://localhost:8000/api/carts'
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+
+
+def add_product_to_cart(tg_id, product_id):
+    auth_token = env("AUTH_TOKEN")
+
+    headers = {
+        'Authorization': f'Bearer {auth_token}',
+        'Content-Type': 'application/json'
+    }
+
+    url = f'http://localhost:8000/api/cart-products'
+    response_get = requests.get(url, headers=headers)
+    response_get.raise_for_status()
+
+    data = {
+        "data": {
+            "products": product_id,
+            "quantity": 2,
+            "cart": tg_id
+        }
+    }
+
+    response_put = requests.post(url, json=data, headers=headers)
+    response_put.raise_for_status()
 
 
 def start(update, context):
@@ -76,15 +140,8 @@ def handle_description(update, context):
 
     if update.callback_query:
         if query.data != 'back':
-            auth_token = env("AUTH_TOKEN")
-            headers = {'Authorization': f'Bearer {auth_token}', 'Content-Type': 'application/json'}
-            data = {
-                "data": {
-                    "tg_id": query.from_user.id
-                }
-            }
-            request = requests.post('http://localhost:8000/api/carts', json=data, headers=headers)
-            request.raise_for_status()
+            create_cart(query.from_user.id)
+            add_product_to_cart(query.from_user.id, query.data)
 
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
