@@ -31,22 +31,20 @@ def handle_menu(update, context):
 
     update.effective_message.reply_text('Please choose:', reply_markup=reply_markup)
 
-    if update.callback_query:
-        context.bot.delete_message(
-            chat_id=update.effective_chat.id,
-            message_id=update.effective_message.message_id
-        )
-        update.callback_query.answer()
-
     return 'HANDLE_DESCRIPTION'
 
 
 def handle_description(update, context):
+    context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=update.effective_message.message_id
+    )
+
     query = update.callback_query
     query.answer()
 
     keyboard = [
-        [InlineKeyboardButton('Назад', callback_data='back')],
+        [InlineKeyboardButton('Назад', callback_data='menu')],
         [InlineKeyboardButton('Добавить в корзину', callback_data=f'add_to_cart_{query.data}')],
         [InlineKeyboardButton('Моя корзина', callback_data='cart')],
     ]
@@ -55,16 +53,12 @@ def handle_description(update, context):
         product_id = query.data.split('_')[-1]
         create_cart(query.from_user.id)
         add_product_to_cart(query.from_user.id, product_id)
-        query.answer()
-        return 'HANDLE_CART'
+        next_handle = handle_menu(update, context)
+        return next_handle
 
     if query.data == 'cart':
         handle_cart(update, context)
         return 'HANDLE_CART'
-
-    if query.data == 'back':
-        handle_menu(update, context)
-        return 'HANDLE_MENU'
 
     product = get_product(query.data)
     image_url = product['attributes']['picture']['data'][0]['attributes']['url']
@@ -75,12 +69,6 @@ def handle_description(update, context):
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.callback_query.message.reply_photo(caption=product_description, photo=image_data, reply_markup=reply_markup)
 
-    # context.bot.delete_message(
-    #     chat_id=update.effective_chat.id,
-    #     message_id=update.effective_message.message_id
-    # )
-    # update.callback_query.answer()
-
 
 def handle_cart(update, context):
     keyboard = []
@@ -89,6 +77,12 @@ def handle_cart(update, context):
     if query.data.startswith('del_'):
         product_id = query.data.split('_')[-1]
         remove_product_from_cart(product_id)
+        query.data = 'updated_cart'
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
+        handle_cart(update, context)
         return 'HANDLE_CART'
 
     if query.data == 'pay':
@@ -97,15 +91,18 @@ def handle_cart(update, context):
 
     cart = get_cart(query.from_user.id)
     message = []
-    for product in cart['attributes']['cart_products']['data']:
-        product_info = product['attributes']['product']['data']['attributes']
-        product_title = product_info['title']
-        product_price = product_info['price']
-        product_id = product['id']
-        button = [InlineKeyboardButton(f'удалить {product_title}', callback_data=f'del_{product_id}')]
-        keyboard.append(button)
+    if cart['attributes']['cart_products']['data']:
+        for product in cart['attributes']['cart_products']['data']:
+            product_info = product['attributes']['product']['data']['attributes']
+            product_title = product_info['title']
+            product_price = product_info['price']
+            cart_product_id = product['id']
+            button = [InlineKeyboardButton(f'удалить {product_title}', callback_data=f'del_{cart_product_id}')]
+            keyboard.append(button)
 
-        message.append(f'{product_title} --- {product_price}')
+            message.append(f'{product_title} --- {product_price}')
+    else:
+        message.append('К сожалению, корзина пуста.')
     keyboard.append([InlineKeyboardButton('В меню', callback_data='menu')])
     keyboard.append([InlineKeyboardButton('Оплатить', callback_data='pay')])
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -115,13 +112,20 @@ def handle_cart(update, context):
 
 
 def handle_waiting_email(update, context):
+    context.bot.delete_message(
+        chat_id=update.effective_chat.id,
+        message_id=update.effective_message.message_id
+    )
+
     user_email = update.message.text
     username = update.message.from_user.username
 
-    profile = create_user_profile(user_email, username)
+    profile = create_or_update_user_profile(user_email, username)
     profile_id = profile['id']
 
     pay_cart(profile_id, update.message.from_user.id)
+
+    context.bot.send_message(chat_id=update.message.chat_id, text='Заказ успешно создан, ожидайте письмо от менеджера')
 
 
 def handle_users_reply(update, context):
@@ -148,6 +152,10 @@ def handle_users_reply(update, context):
     }
 
     if user_reply == 'menu':
+        context.bot.delete_message(
+            chat_id=update.effective_chat.id,
+            message_id=update.effective_message.message_id
+        )
         user_state = 'HANDLE_MENU'
 
     state_handler = states_functions[user_state]
