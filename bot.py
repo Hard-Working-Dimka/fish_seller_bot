@@ -8,7 +8,6 @@ from io import BytesIO
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
-_database = None
 AUTH_TOKEN = env("AUTH_TOKEN")
 STRAPI_BASE_URL = env.str('API_BASE_URL', default='http://localhost:1337')
 
@@ -131,8 +130,7 @@ def handle_waiting_email(update, context):
     context.bot.send_message(chat_id=update.message.chat_id, text='Заказ успешно создан, ожидайте письмо от менеджера')
 
 
-def handle_users_reply(update, context):
-    db = get_database_connection()
+def handle_users_reply(update, context, database):
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -144,7 +142,7 @@ def handle_users_reply(update, context):
     if user_reply == '/start':
         user_state = 'HANDLE_MENU'
     else:
-        user_state = db.get(chat_id).decode("utf-8")
+        user_state = database.get(chat_id).decode("utf-8")
 
     states_functions = {
         'START': start,
@@ -165,29 +163,24 @@ def handle_users_reply(update, context):
 
     try:
         next_state = state_handler(update, context)
-        db.set(chat_id, next_state)
+        database.set(chat_id, next_state)
     except Exception as err:
         print(err)
 
 
-def get_database_connection():
-    global _database
-    if _database is None:
-        database_password = env('DATABASE_PASSWORD')
-        database_host = env('DATABASE_HOST')
-        database_port = env('DATABASE_PORT')
-        _database = redis.Redis(host=database_host, port=database_port, password=database_password)
-    return _database
-
-
 if __name__ == '__main__':
     env.read_env()
-
+    database_password = env('DATABASE_PASSWORD')
+    database_host = env('DATABASE_HOST')
+    database_port = env('DATABASE_PORT')
     token = env('TELEGRAM_TOKEN')
+
+    database = redis.Redis(host=database_host, port=database_port, password=database_password)
+
     updater = Updater(token)
     dispatcher = updater.dispatcher
-    dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
-    dispatcher.add_handler(MessageHandler(Filters.text, handle_users_reply))
-    dispatcher.add_handler(CommandHandler('start', handle_users_reply))
+    dispatcher.add_handler(CallbackQueryHandler(lambda update, context: handle_users_reply(update, context, database)))
+    dispatcher.add_handler(MessageHandler(Filters.text, lambda update, context: handle_users_reply(update, context, database)))
+    dispatcher.add_handler(CommandHandler('start', lambda update, context: handle_users_reply(update, context, database)))
     updater.start_polling()
     updater.idle()
