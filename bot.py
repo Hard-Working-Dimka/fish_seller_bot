@@ -126,7 +126,7 @@ def handle_waiting_email(update, context):
     profile = create_or_update_user_profile(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL)
     profile_id = profile['id']
 
-    pay_cart(profile_id, update.message.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
+    add_cart_to_user_profile(profile_id, update.message.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
 
     context.bot.send_message(chat_id=update.message.chat_id, text='Заказ успешно создан, ожидайте письмо от менеджера')
 

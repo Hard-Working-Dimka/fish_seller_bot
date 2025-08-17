@@ -168,7 +168,7 @@ def create_or_update_user_profile(user_email, username, auth_token, base_url):
             return response.json()[0]
 
 
-def pay_cart(profile_id, cart_id, auth_token, base_url):
+def add_cart_to_user_profile(profile_id, cart_id, auth_token, base_url):
     headers = {
         'Authorization': f'Bearer {auth_token}',
         'Content-Type': 'application/json'
