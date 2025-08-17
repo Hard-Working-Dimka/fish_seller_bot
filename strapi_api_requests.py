@@ -38,10 +38,7 @@ def is_cart_exist(tg_id, auth_token, base_url):
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
 
-    if response.json()['data']:
-        return True
-    else:
-        return False
+    return bool(response.json()['data'])
 
 
 def is_user_exist(user_email, username, auth_token, base_url):
@@ -57,10 +54,7 @@ def is_user_exist(user_email, username, auth_token, base_url):
     response = requests.get(url, headers=headers, params=params)
 
     response.raise_for_status()
-    if response.json():
-        return True
-    else:
-        return False
+    return bool(response.json())
 
 
 def create_cart(tg_id, auth_token, base_url):
