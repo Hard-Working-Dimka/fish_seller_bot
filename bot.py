@@ -8,7 +8,7 @@ from io import BytesIO
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
-AUTH_TOKEN = env("AUTH_TOKEN")
+AUTH_TOKEN = env('AUTH_TOKEN')
 STRAPI_BASE_URL = env.str('API_BASE_URL', default='http://localhost:1337')
 
 
@@ -122,7 +122,11 @@ def handle_waiting_email(update, context):
     user_email = update.message.text
     username = update.message.from_user.username
 
-    profile = create_or_update_user_profile(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL)
+    if not is_user_exist(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL):
+        profile = create_user_profile(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL)
+    else:
+        profile = update_user_profile(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL)
+
     profile_id = profile['id']
 
     add_cart_to_user_profile(profile_id, update.message.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
@@ -180,7 +184,9 @@ if __name__ == '__main__':
     updater = Updater(token)
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CallbackQueryHandler(lambda update, context: handle_users_reply(update, context, database)))
-    dispatcher.add_handler(MessageHandler(Filters.text, lambda update, context: handle_users_reply(update, context, database)))
-    dispatcher.add_handler(CommandHandler('start', lambda update, context: handle_users_reply(update, context, database)))
+    dispatcher.add_handler(
+        MessageHandler(Filters.text, lambda update, context: handle_users_reply(update, context, database)))
+    dispatcher.add_handler(
+        CommandHandler('start', lambda update, context: handle_users_reply(update, context, database)))
     updater.start_polling()
     updater.idle()

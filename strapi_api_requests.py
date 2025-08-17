@@ -124,48 +124,53 @@ def remove_product_from_cart(cart_product_id, auth_token, base_url):
     response.raise_for_status()
 
 
-def create_or_update_user_profile(user_email, username, auth_token, base_url):
+def create_user_profile(user_email, username, auth_token, base_url):
     headers = {
         'Authorization': f'Bearer {auth_token}',
         'Content-Type': 'application/json'
     }
-    if not is_user_exist(user_email, username, auth_token, base_url):
-        url = f'{base_url}/api/users'
+    url = f'{base_url}/api/users'
 
+    user_profile_payload = {
+        "username": username,
+        "email": user_email,
+        "password": "default"
+    }
+
+    response = requests.post(url, headers=headers, json=user_profile_payload)
+    response.raise_for_status()
+    return response.json()
+
+
+def update_user_profile(user_email, username, auth_token, base_url):
+    headers = {
+        'Authorization': f'Bearer {auth_token}',
+        'Content-Type': 'application/json'
+    }
+    params = {
+        'filters[$or][0][email][$eq]': user_email.lower(),
+        'filters[$or][1][username][$eq]': username
+    }
+    url = f'{base_url}/api/users'
+
+    response = requests.get(url, headers=headers, params=params)
+    response.raise_for_status()
+
+    profile_username = response.json()[0]['username']
+    profile_email = response.json()[0]['email']
+    profile_id = response.json()[0]['id']
+    if profile_username != username or profile_email != user_email:
+        url = f'{base_url}/api/users/{profile_id}'
         user_profile_payload = {
             "username": username,
-            "email": user_email,
-            "password": "default"
+            "email": user_email
         }
 
-        response = requests.post(url, headers=headers, json=user_profile_payload)
+        response = requests.put(url, headers=headers, json=user_profile_payload)
         response.raise_for_status()
         return response.json()
     else:
-        params = {
-            'filters[$or][0][email][$eq]': user_email.lower(),
-            'filters[$or][1][username][$eq]': username
-        }
-        url = f'{base_url}/api/users'
-
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-
-        profile_username = response.json()[0]['username']
-        profile_email = response.json()[0]['email']
-        profile_id = response.json()[0]['id']
-        if profile_username != username or profile_email != user_email:
-            url = f'{base_url}/api/users/{profile_id}'
-            user_profile_payload = {
-                "username": username,
-                "email": user_email
-            }
-
-            response = requests.put(url, headers=headers, json=user_profile_payload)
-            response.raise_for_status()
-            return response.json()
-        else:
-            return response.json()[0]
+        return response.json()[0]
 
 
 def add_cart_to_user_profile(profile_id, cart_id, auth_token, base_url):
