@@ -1,6 +1,6 @@
 import redis
 import requests
-from API_requests import *
+from strapi_api_requests import *
 from environs import env
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from io import BytesIO
