@@ -18,8 +18,9 @@ def get_product(id, auth_token, base_url):
         'Authorization': f'Bearer {auth_token}',
         'Content-Type': 'application/json'
     }
-    url = f'{base_url}/api/products/{id}?populate=picture'
-    product = requests.get(url=url, headers=headers)
+    params = {'populate': 'picture'}
+    url = f'{base_url}/api/products/{id}'
+    product = requests.get(url=url, headers=headers, params=params)
     product.raise_for_status()
     product = product.json()['data']
     return product
@@ -30,8 +31,11 @@ def is_cart_exist(tg_id, auth_token, base_url):
         'Authorization': f'Bearer {auth_token}',
         'Content-Type': 'application/json'
     }
-    url = f'{base_url}/api/carts?filters[tg_id][$eq]={tg_id}'
-    response = requests.get(url, headers=headers)
+    params = {
+        'filters[tg_id][$eq]': tg_id
+    }
+    url = f'{base_url}/api/carts'
+    response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
 
     if response.json()['data']:
@@ -45,8 +49,12 @@ def is_user_exist(user_email, username, auth_token, base_url):
         'Authorization': f'Bearer {auth_token}',
         'Content-Type': 'application/json'
     }
-    url = f'{base_url}/api/users?filters[$or][0][email][$eq]={user_email.lower()}&filters[$or][1][username][$eq]={username}'
-    response = requests.get(url, headers=headers)
+    params = {
+        'filters[$or][0][email][$eq]': user_email.lower(),
+        'filters[$or][1][username][$eq]': username
+    }
+    url = f'{base_url}/api/users'
+    response = requests.get(url, headers=headers, params=params)
 
     response.raise_for_status()
     if response.json():
@@ -76,8 +84,13 @@ def get_cart(tg_id, auth_token, base_url):
         'Authorization': f'Bearer {auth_token}',
         'Content-Type': 'application/json'
     }
-    url = f'{base_url}/api/carts?filters[tg_id][$eq]={tg_id}&populate[0]=cart_products&populate[1]=cart_products.product'
-    response = requests.get(url, headers=headers)
+    params = {
+        'filters[tg_id][$eq]': tg_id,
+        'populate[0]': 'cart_products',
+        'populate[1]': 'cart_products.product'
+    }
+    url = f'{base_url}/api/carts'
+    response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
     cart = response.json()['data'][0]
     return cart
@@ -135,9 +148,13 @@ def create_or_update_user_profile(user_email, username, auth_token, base_url):
         response.raise_for_status()
         return response.json()
     else:
-        url = f'{base_url}/api/users?filters[$or][0][email][$eq]={user_email.lower()}&filters[$or][1][username][$eq]={username}'
+        params = {
+            'filters[$or][0][email][$eq]': user_email.lower(),
+            'filters[$or][1][username][$eq]': username
+        }
+        url = f'{base_url}/api/users'
 
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=params)
         response.raise_for_status()
 
         profile_username = response.json()[0]['username']
