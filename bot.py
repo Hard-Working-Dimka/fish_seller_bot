@@ -8,6 +8,7 @@ from io import BytesIO
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
+env.read_env()
 AUTH_TOKEN = env('AUTH_TOKEN')
 STRAPI_BASE_URL = env.str('API_BASE_URL', default='http://localhost:1337')
 
@@ -102,7 +103,7 @@ def handle_cart(update, context):
             button = [InlineKeyboardButton(f'удалить {product_title}', callback_data=f'del_{cart_product_id}')]
             keyboard.append(button)
 
-            message.append(f'{product_title} --- {product_price}')
+            message.append(f'{product_title} --- {product_price}р')
     else:
         message.append('К сожалению, корзина пуста.')
     keyboard.append([InlineKeyboardButton('В меню', callback_data='menu')])
@@ -129,7 +130,9 @@ def handle_waiting_email(update, context):
 
     profile_id = profile['id']
 
-    add_cart_to_user_profile(profile_id, update.message.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
+    cart = get_cart(update.message.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
+    cart_id = cart["id"]
+    add_cart_to_user_profile(profile_id, cart_id, AUTH_TOKEN, STRAPI_BASE_URL)
 
     context.bot.send_message(chat_id=update.message.chat_id, text='Заказ успешно создан, ожидайте письмо от менеджера')
 
@@ -173,7 +176,6 @@ def handle_users_reply(update, context, database):
 
 
 if __name__ == '__main__':
-    env.read_env()
     database_password = env('DATABASE_PASSWORD')
     database_host = env('DATABASE_HOST')
     database_port = env('DATABASE_PORT')

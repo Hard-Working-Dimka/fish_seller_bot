@@ -105,7 +105,7 @@ def add_product_to_cart(tg_id, product_id, auth_token, base_url):
     product_payload = {
         "data": {
             "product": product_id,
-            "quantity": 2,
+            "quantity": 2,  # TODO: не используется. Для дальнейших улучшений.
             "cart": cart_id
         }
     }
