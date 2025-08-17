@@ -46,9 +46,23 @@ npm run build
 
 **Cart**
 
+<img width="1191" height="527" alt="image" src="https://github.com/user-attachments/assets/fd40122e-ab35-4fca-b183-3cea380bef56" />
+
+* Связь users_permissions_user - User has many Carts
+* Связь cart_products - Cart belongs to many CartProducts
+
 **CartProduct**
 
+<img width="831" height="527" alt="image" src="https://github.com/user-attachments/assets/6093d013-3ca7-4822-95bf-91c77ee4eb39" />
+
+* Связь с cart - Cart has many CartProducts.
+* Связь с product - Product has many CartProducts
+
 **Product**
+
+<img width="948" height="798" alt="image" src="https://github.com/user-attachments/assets/8c1d5f50-d814-485c-b5b1-a69bec977eae" />
+
+* Связь cart_products - Product belongs to many CartProducts
 
 Запустите бота, предварительно запустив сервер CMS:
 
