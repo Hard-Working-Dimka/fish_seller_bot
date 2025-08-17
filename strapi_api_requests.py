@@ -64,7 +64,7 @@ def is_user_exist(user_email, username, auth_token, base_url):
 
 
 def create_cart(tg_id, auth_token, base_url):
-    data = {
+    cart_payload = {
         "data": {
             "tg_id": tg_id
         }
@@ -74,7 +74,7 @@ def create_cart(tg_id, auth_token, base_url):
         'Content-Type': 'application/json'
     }
     url = f'{base_url}/api/carts'
-    response = requests.post(url, json=data, headers=headers)
+    response = requests.post(url, json=cart_payload, headers=headers)
     response.raise_for_status()
     return response.json()
 
@@ -108,7 +108,7 @@ def add_product_to_cart(tg_id, product_id, auth_token, base_url):
     response = requests.get(url, headers=headers)
     response.raise_for_status()
 
-    data = {
+    product_payload = {
         "data": {
             "product": product_id,
             "quantity": 2,
@@ -116,7 +116,7 @@ def add_product_to_cart(tg_id, product_id, auth_token, base_url):
         }
     }
 
-    response_put = requests.post(url, json=data, headers=headers)
+    response_put = requests.post(url, json=product_payload, headers=headers)
     response_put.raise_for_status()
 
 
@@ -138,13 +138,13 @@ def create_or_update_user_profile(user_email, username, auth_token, base_url):
     if not is_user_exist(user_email, username, auth_token, base_url):
         url = f'{base_url}/api/users'
 
-        data = {
+        user_profile_payload = {
             "username": username,
             "email": user_email,
             "password": "default"
         }
 
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=user_profile_payload)
         response.raise_for_status()
         return response.json()
     else:
@@ -162,12 +162,12 @@ def create_or_update_user_profile(user_email, username, auth_token, base_url):
         profile_id = response.json()[0]['id']
         if profile_username != username or profile_email != user_email:
             url = f'{base_url}/api/users/{profile_id}'
-            data = {
+            user_profile_payload = {
                 "username": username,
                 "email": user_email
             }
 
-            response = requests.put(url, headers=headers, json=data)
+            response = requests.put(url, headers=headers, json=user_profile_payload)
             response.raise_for_status()
             return response.json()
         else:
@@ -180,8 +180,8 @@ def pay_cart(profile_id, cart_id, auth_token, base_url):
         'Content-Type': 'application/json'
     }
     url = f'{base_url}/api/users/{profile_id}'
-    data = {
+    cart_payload = {
         "carts": cart_id
     }
-    response = requests.put(url, headers=headers, json=data)
+    response = requests.put(url, headers=headers, json=cart_payload)
     response.raise_for_status()
