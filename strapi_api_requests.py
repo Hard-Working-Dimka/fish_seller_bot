@@ -105,8 +105,8 @@ def add_product_to_cart(tg_id, product_id, auth_token, base_url):
         'Content-Type': 'application/json'
     }
     url = f'{base_url}/api/cart-products'
-    response_get = requests.get(url, headers=headers)
-    response_get.raise_for_status()
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
 
     data = {
         "data": {
@@ -183,5 +183,5 @@ def pay_cart(profile_id, cart_id, auth_token, base_url):
     data = {
         "carts": cart_id
     }
-    response_get = requests.put(url, headers=headers, json=data)
-    response_get.raise_for_status()
+    response = requests.put(url, headers=headers, json=data)
+    response.raise_for_status()
