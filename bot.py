@@ -9,6 +9,7 @@ from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
 _database = None
+AUTH_TOKEN = env("AUTH_TOKEN")
 
 
 def start(update, context):
@@ -18,7 +19,7 @@ def start(update, context):
 
 
 def handle_menu(update, context):
-    goods = get_goods()
+    goods = get_goods(AUTH_TOKEN)
     keyboard = []
 
     for product in goods:
@@ -51,8 +52,9 @@ def handle_description(update, context):
 
     if query.data.startswith('add_to_cart_'):
         product_id = query.data.split('_')[-1]
-        create_cart(query.from_user.id)
-        add_product_to_cart(query.from_user.id, product_id)
+        if not is_cart_exist(query.from_user.id, AUTH_TOKEN):
+            create_cart(query.from_user.id, AUTH_TOKEN)
+        add_product_to_cart(query.from_user.id, product_id, AUTH_TOKEN)
         next_handle = handle_menu(update, context)
         return next_handle
 
@@ -60,7 +62,7 @@ def handle_description(update, context):
         handle_cart(update, context)
         return 'HANDLE_CART'
 
-    product = get_product(query.data)
+    product = get_product(query.data, AUTH_TOKEN)
     image_url = product['attributes']['picture']['data'][0]['attributes']['url']
     response = requests.get(f'http://localhost:8000{image_url}')
     response.raise_for_status()
@@ -76,7 +78,7 @@ def handle_cart(update, context):
 
     if query.data.startswith('del_'):
         product_id = query.data.split('_')[-1]
-        remove_product_from_cart(product_id)
+        remove_product_from_cart(product_id, AUTH_TOKEN)
         query.data = 'updated_cart'
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
@@ -89,7 +91,7 @@ def handle_cart(update, context):
         context.bot.send_message(chat_id=query.from_user.id, text='Введите ваш email:')
         return 'HANDLE_WAITING_EMAIL'
 
-    cart = get_cart(query.from_user.id)
+    cart = get_cart(query.from_user.id, AUTH_TOKEN)
     message = []
     if cart['attributes']['cart_products']['data']:
         for product in cart['attributes']['cart_products']['data']:
@@ -120,10 +122,10 @@ def handle_waiting_email(update, context):
     user_email = update.message.text
     username = update.message.from_user.username
 
-    profile = create_or_update_user_profile(user_email, username)
+    profile = create_or_update_user_profile(user_email, username, AUTH_TOKEN)
     profile_id = profile['id']
 
-    pay_cart(profile_id, update.message.from_user.id)
+    pay_cart(profile_id, update.message.from_user.id, AUTH_TOKEN)
 
     context.bot.send_message(chat_id=update.message.chat_id, text='Заказ успешно создан, ожидайте письмо от менеджера')
 
