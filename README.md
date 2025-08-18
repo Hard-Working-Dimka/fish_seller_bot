@@ -81,7 +81,7 @@ npm run build
 
 * Связь cart_products - Product belongs to many CartProducts
 
-## Запуск
+## Запуск бота
 
 Запустите бота, предварительно запустив сервер CMS:
 
