@@ -8,10 +8,6 @@ from io import BytesIO
 from telegram.ext import Filters, Updater
 from telegram.ext import CallbackQueryHandler, CommandHandler, MessageHandler
 
-env.read_env()
-AUTH_TOKEN = env('AUTH_TOKEN')
-STRAPI_BASE_URL = env.str('API_BASE_URL', default='http://localhost:1337')
-
 
 def start(update, context):
     update.message.reply_text(text='Привет! Ты в рыбном магазине!')
@@ -20,7 +16,10 @@ def start(update, context):
 
 
 def handle_menu(update, context):
-    goods = get_goods(AUTH_TOKEN, STRAPI_BASE_URL)
+    auth_token = context.bot_data['AUTH_TOKEN']
+    strapi_url = context.bot_data['STRAPI_BASE_URL']
+
+    goods = get_goods(auth_token, strapi_url)
     keyboard = []
 
     for product in goods:
@@ -37,6 +36,8 @@ def handle_menu(update, context):
 
 
 def handle_description(update, context):
+    auth_token = context.bot_data['AUTH_TOKEN']
+    strapi_url = context.bot_data['STRAPI_BASE_URL']
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
@@ -53,9 +54,9 @@ def handle_description(update, context):
 
     if query.data.startswith('add_to_cart_'):
         product_id = query.data.split('_')[-1]
-        if not is_cart_exist(query.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL):
-            create_cart(query.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
-        add_product_to_cart(query.from_user.id, product_id, AUTH_TOKEN, STRAPI_BASE_URL)
+        if not is_cart_exist(query.from_user.id, auth_token, strapi_url):
+            create_cart(query.from_user.id, auth_token, strapi_url)
+        add_product_to_cart(query.from_user.id, product_id, auth_token, strapi_url)
         next_handle = handle_menu(update, context)
         return next_handle
 
@@ -63,9 +64,9 @@ def handle_description(update, context):
         handle_cart(update, context)
         return 'HANDLE_CART'
 
-    product = get_product(query.data, AUTH_TOKEN, STRAPI_BASE_URL)
+    product = get_product(query.data, auth_token, strapi_url)
     image_url = product['attributes']['picture']['data'][0]['attributes']['url']
-    response = requests.get(f'{STRAPI_BASE_URL}{image_url}')
+    response = requests.get(f'{strapi_url}{image_url}')
     response.raise_for_status()
     image_data = BytesIO(response.content)
     product_description = product['attributes']['description']
@@ -74,12 +75,14 @@ def handle_description(update, context):
 
 
 def handle_cart(update, context):
+    auth_token = context.bot_data['AUTH_TOKEN']
+    strapi_url = context.bot_data['STRAPI_BASE_URL']
     keyboard = []
     query = update.callback_query
 
     if query.data.startswith('del_'):
         product_id = query.data.split('_')[-1]
-        remove_product_from_cart(product_id, AUTH_TOKEN, STRAPI_BASE_URL)
+        remove_product_from_cart(product_id, auth_token, strapi_url)
         query.data = 'updated_cart'
         context.bot.delete_message(
             chat_id=update.effective_chat.id,
@@ -92,7 +95,7 @@ def handle_cart(update, context):
         context.bot.send_message(chat_id=query.from_user.id, text='Введите ваш email:')
         return 'HANDLE_WAITING_EMAIL'
 
-    cart = get_cart(query.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
+    cart = get_cart(query.from_user.id, auth_token, strapi_url)
     message = []
     if cart['attributes']['cart_products']['data']:
         for product in cart['attributes']['cart_products']['data']:
@@ -115,6 +118,8 @@ def handle_cart(update, context):
 
 
 def handle_waiting_email(update, context):
+    auth_token = context.bot_data['AUTH_TOKEN']
+    strapi_url = context.bot_data['STRAPI_BASE_URL']
     context.bot.delete_message(
         chat_id=update.effective_chat.id,
         message_id=update.effective_message.message_id
@@ -123,16 +128,16 @@ def handle_waiting_email(update, context):
     user_email = update.message.text
     username = update.message.from_user.username
 
-    if not is_user_exist(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL):
-        profile = create_user_profile(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL)
+    if not is_user_exist(user_email, username, auth_token, strapi_url):
+        profile = create_user_profile(user_email, username, auth_token, strapi_url)
     else:
-        profile = update_user_profile(user_email, username, AUTH_TOKEN, STRAPI_BASE_URL)
+        profile = update_user_profile(user_email, username, auth_token, strapi_url)
 
     profile_id = profile['id']
 
-    cart = get_cart(update.message.from_user.id, AUTH_TOKEN, STRAPI_BASE_URL)
+    cart = get_cart(update.message.from_user.id, auth_token, strapi_url)
     cart_id = cart["id"]
-    add_cart_to_user_profile(profile_id, cart_id, AUTH_TOKEN, STRAPI_BASE_URL)
+    add_cart_to_user_profile(profile_id, cart_id, auth_token, strapi_url)
 
     context.bot.send_message(chat_id=update.message.chat_id, text='Заказ успешно создан, ожидайте письмо от менеджера')
 
@@ -176,6 +181,8 @@ def handle_users_reply(update, context, database):
 
 
 if __name__ == '__main__':
+    env.read_env()
+
     database_password = env('DATABASE_PASSWORD')
     database_host = env('DATABASE_HOST')
     database_port = env('DATABASE_PORT')
@@ -190,5 +197,7 @@ if __name__ == '__main__':
         MessageHandler(Filters.text, lambda update, context: handle_users_reply(update, context, database)))
     dispatcher.add_handler(
         CommandHandler('start', lambda update, context: handle_users_reply(update, context, database)))
+    dispatcher.bot_data['AUTH_TOKEN'] = env('AUTH_TOKEN')
+    dispatcher.bot_data['STRAPI_BASE_URL'] = env.str('API_BASE_URL', default='http://localhost:1337')
     updater.start_polling()
     updater.idle()
